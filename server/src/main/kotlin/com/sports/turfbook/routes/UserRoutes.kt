@@ -34,10 +34,12 @@ fun Route.userRoutes(userService: UserService) {
             patch("/me") {
                 val dto = call.receive<UpdateProfileDto>()
 
-                if (dto.name != null && dto.name.isBlank()) {
+                val name = dto.name
+                if (name != null && name.isBlank()) {
                     throw IllegalArgumentException("Name cannot be blank")
                 }
-                if (dto.email != null && !dto.email.contains("@")) {
+                val email = dto.email
+                if (email != null && !email.contains("@")) {
                     throw IllegalArgumentException("Invalid email address")
                 }
 
