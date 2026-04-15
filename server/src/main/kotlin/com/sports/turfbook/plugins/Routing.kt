@@ -21,7 +21,7 @@ fun Application.configureRouting() {
 
     routing {
         get("/health") {
-            call.respond(HttpStatusCode.OK, ApiResponse(success = true, message = "TurfBook API is running"))
+            call.respond(HttpStatusCode.OK, ApiResponse<Unit>(success = true, message = "TurfBook API is running"))
         }
 
         route("/api/v1") {

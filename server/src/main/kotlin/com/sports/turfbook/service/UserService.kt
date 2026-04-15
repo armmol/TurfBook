@@ -4,10 +4,9 @@ import com.sports.turfbook.api.dto.user.UpdateProfileDto
 import com.sports.turfbook.api.dto.user.UserDto
 import com.sports.turfbook.database.tables.UserPreferredSportsTable
 import com.sports.turfbook.database.tables.UsersTable
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.datetime.Clock
-import kotlinx.datetime.toJavaInstant
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import kotlinx.datetime.Instant
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
@@ -25,7 +24,7 @@ class UserService {
             ?.let { row ->
                 val sports = UserPreferredSportsTable
                     .selectAll()
-                    .where { UserPreferredSportsTable.userId eq row[UsersTable.id] }
+                    .where { UserPreferredSportsTable.userId eq row[UsersTable.id].value }
                     .map { it[UserPreferredSportsTable.sport] }
 
                 UserDto(
@@ -49,7 +48,7 @@ class UserService {
             ?.let { row ->
                 val sports = UserPreferredSportsTable
                     .selectAll()
-                    .where { UserPreferredSportsTable.userId eq row[UsersTable.id] }
+                    .where { UserPreferredSportsTable.userId eq row[UsersTable.id].value }
                     .map { it[UserPreferredSportsTable.sport] }
 
                 UserDto(
@@ -67,7 +66,7 @@ class UserService {
 
     /** Creates a new user on first OTP verification */
     fun createUser(phone: String): UserDto = transaction {
-        val now = Clock.System.now().toJavaInstant()
+        val now: Instant = Clock.System.now()
         val newId = UUID.randomUUID()
 
         UsersTable.insert {
@@ -86,7 +85,7 @@ class UserService {
     }
 
     fun updateProfile(userId: String, dto: UpdateProfileDto): UserDto? = transaction {
-        val now = Clock.System.now().toJavaInstant()
+        val now: Instant = Clock.System.now()
         val uuid = UUID.fromString(userId)
 
         UsersTable.update({ UsersTable.id eq uuid }) { row ->
@@ -98,7 +97,9 @@ class UserService {
         }
 
         dto.preferredSports?.let { newSports ->
-            UserPreferredSportsTable.deleteWhere { userId eq uuid }
+            UserPreferredSportsTable.deleteWhere {
+                Op.build { UserPreferredSportsTable.userId eq uuid }
+            }
             newSports.forEach { sport ->
                 UserPreferredSportsTable.insert {
                     it[UserPreferredSportsTable.userId] = uuid

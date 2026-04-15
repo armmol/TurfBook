@@ -4,7 +4,7 @@ import com.sports.turfbook.api.dto.auth.AuthResponseDto
 import com.sports.turfbook.database.tables.RefreshTokensTable
 import com.sports.turfbook.util.JwtUtil
 import kotlinx.datetime.Clock
-import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.Instant
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
@@ -40,7 +40,7 @@ class AuthService(private val userService: UserService) {
      * Returns null if the token is expired, revoked, or not found.
      */
     fun refreshTokens(token: String): Pair<String, String>? {
-        val now = Clock.System.now().toJavaInstant()
+        val now: Instant = Clock.System.now()
 
         return transaction {
             val row = RefreshTokensTable
@@ -76,15 +76,15 @@ class AuthService(private val userService: UserService) {
 
     private fun storeRefreshToken(userId: String): String {
         val token = JwtUtil.generateRefreshToken()
-        val now = Clock.System.now()
+        val now: Instant = Clock.System.now()
 
         transaction {
             RefreshTokensTable.insert {
                 it[id] = UUID.randomUUID()
                 it[RefreshTokensTable.userId] = UUID.fromString(userId)
                 it[RefreshTokensTable.token] = token
-                it[expiresAt] = (now + 30.days).toJavaInstant()
-                it[createdAt] = now.toJavaInstant()
+                it[expiresAt] = now + 30.days
+                it[createdAt] = now
             }
         }
         return token
