@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: turfbook-db
+    environment:
+      POSTGRES_DB: turfbook
+      POSTGRES_USER: turfbook
+      POSTGRES_PASSWORD: turfbook_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - turfbook_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: turfbook-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  turfbook_pgdata:
