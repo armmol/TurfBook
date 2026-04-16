@@ -2,7 +2,47 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
+
+    <!-- ── App identity ────────────────────────────────────────────────── -->
+    <key>CFBundleDisplayName</key>
+    <string>TurfBook</string>
+
+    <!-- ── Performance ─────────────────────────────────────────────────── -->
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+
+    <!-- ── Status bar ──────────────────────────────────────────────────── -->
+    <!-- Dark background → white icons/text in the status bar -->
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleLightContent</string>
+    <!-- Let the app (Compose) manage status bar per-screen if needed -->
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+
+    <!-- ── Launch screen ───────────────────────────────────────────────── -->
+    <!-- Shows the TurfBook dark-green background colour instantly, before
+         the KMP framework has loaded — eliminates the white flash.         -->
+    <key>UILaunchScreen</key>
+    <dict>
+        <!-- Matches BackgroundDark (#0D1F14) defined in LaunchBackground asset -->
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+    </dict>
+
+    <!-- ── Orientations ────────────────────────────────────────────────── -->
+    <!-- Portrait-only for phones (typical for booking apps) -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <!-- iPad: allow both portrait orientations -->
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
 </dict>
 </plist>

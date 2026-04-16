@@ -165,7 +165,8 @@ fun SplashScreen(onFinished: () -> Unit) {
             color = Color.White.copy(alpha = 0.25f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
+                .navigationBarsPadding()   // home indicator clearance on iOS
+                .padding(bottom = 16.dp)
                 .alpha(taglineAlpha)
         )
     }

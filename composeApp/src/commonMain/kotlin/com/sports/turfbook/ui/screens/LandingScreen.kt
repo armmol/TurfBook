@@ -108,10 +108,11 @@ fun LandingScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .navigationBarsPadding()   // respects iPhone home indicator + Android nav bar
                 .alpha(alpha)
                 .offset(y = slideY.dp)
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 48.dp),
+                .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Feature pills
