@@ -1,6 +1,5 @@
 package com.sports.turfbook.api.dto.user
 
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 /** Returned in API responses wherever user data is needed */
@@ -12,6 +11,7 @@ data class UserDto(
     val email: String? = null,
     val profilePhotoUrl: String? = null,
     val city: String,
-    val preferredSports: List<SportType> = emptyList(),
+    /** Sport codes, e.g. ["FOOTBALL", "CRICKET"] */
+    val preferredSports: List<String> = emptyList(),
     val totalBookings: Int = 0
 )

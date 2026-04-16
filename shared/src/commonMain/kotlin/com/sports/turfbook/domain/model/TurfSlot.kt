@@ -1,14 +1,14 @@
 package com.sports.turfbook.domain.model
 
 import com.sports.turfbook.domain.enums.SlotStatus
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class TurfSlot(
     val id: String,
     val turfId: String,
-    val sport: SportType,
+    /** Sport code, e.g. "FOOTBALL". Use KnownSports.fromCode() to resolve. */
+    val sport: String,
     /** "2024-01-15" */
     val date: String,
     /** "10:00" 24h format */

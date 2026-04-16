@@ -1,6 +1,5 @@
 package com.sports.turfbook.api.dto.turf
 
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 /** Lightweight turf summary used in search results and map view */
@@ -12,7 +11,8 @@ data class TurfListItemDto(
     val address: String,
     val latitude: Double,
     val longitude: Double,
-    val sports: List<SportType>,
+    /** Sport codes, e.g. ["FOOTBALL", "CRICKET"]. Use KnownSports.fromCode() on client. */
+    val sports: List<String>,
     val coverPhotoUrl: String? = null,
     val rating: Float,
     val reviewCount: Int,

@@ -1,6 +1,5 @@
 package com.sports.turfbook.domain.model
 
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,7 +12,8 @@ data class Turf(
     val city: String,
     val latitude: Double,
     val longitude: Double,
-    val sports: List<SportType>,
+    /** Sport codes, e.g. ["FOOTBALL", "CRICKET"]. Use KnownSports.fromCode() to resolve. */
+    val sports: List<String>,
     val amenities: List<String>,
     val photoUrls: List<String>,
     /** "06:00" 24h format */
@@ -26,6 +26,8 @@ data class Turf(
     val reviewCount: Int = 0,
     val isVerified: Boolean = false,
     val isActive: Boolean = true,
+    /** Non-null when turf is integrated with an external booking system */
+    val externalSystemType: String? = null,
     val createdAt: String,
     val updatedAt: String
 )
