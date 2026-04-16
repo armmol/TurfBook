@@ -13,9 +13,11 @@ struct ComposeView: UIViewControllerRepresentable {
 struct ContentView: View {
     var body: some View {
         ComposeView()
-            .ignoresSafeArea()
+            // Let Compose paint edge-to-edge — it handles insets internally
+            // via statusBarsPadding() / navigationBarsPadding() modifiers.
+            .ignoresSafeArea(.all)
+            // Match our dark background so there's no flicker behind the
+            // home indicator or in the corners on rounded-display devices.
+            .background(Color(red: 0.051, green: 0.122, blue: 0.078))
     }
 }
-
-
-
