@@ -32,6 +32,7 @@ object KnownSports {
     val KABADDI     = Sport("KABADDI",     "Kabaddi",     "ic_kabaddi",     7, 7)
     val THROWBALL   = Sport("THROWBALL",   "Throwball",   "ic_throwball",   9, 9)
     val BOX_CRICKET = Sport("BOX_CRICKET", "Box Cricket", "ic_box_cricket", 4, 8)
+    val PICKLEBALL  = Sport("PICKLEBALL",  "Pickleball",  "ic_pickleball",  2, 4)
 
     // ── Registry ────────────────────────────────────────────────────────────
 
@@ -45,7 +46,8 @@ object KnownSports {
         HOCKEY.code      to HOCKEY,
         KABADDI.code     to KABADDI,
         THROWBALL.code   to THROWBALL,
-        BOX_CRICKET.code to BOX_CRICKET
+        BOX_CRICKET.code to BOX_CRICKET,
+        PICKLEBALL.code  to PICKLEBALL
     )
 
     /** All currently registered sports. */
