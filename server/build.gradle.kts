@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.kotlin.datetime)
     implementation(libs.hikaricp)
+    implementation(libs.jedis)
     implementation(libs.postgresql)
 
     // Serialization & logging

@@ -1,6 +1,5 @@
 package com.sports.turfbook.domain.model
 
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,7 +12,8 @@ data class User(
     val profilePhotoUrl: String? = null,
     /** City the user primarily plays in, e.g. "Mumbai" */
     val city: String,
-    val preferredSports: List<SportType> = emptyList(),
+    /** Sport codes, e.g. ["FOOTBALL", "CRICKET"]. Use KnownSports.fromCode() to resolve. */
+    val preferredSports: List<String> = emptyList(),
     /** Total bookings made (shown on profile) */
     val totalBookings: Int = 0,
     /** ISO 8601, e.g. "2024-01-15T10:30:00Z" */

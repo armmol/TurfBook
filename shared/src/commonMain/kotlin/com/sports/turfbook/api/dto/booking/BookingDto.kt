@@ -1,7 +1,6 @@
 package com.sports.turfbook.api.dto.booking
 
 import com.sports.turfbook.domain.enums.BookingStatus
-import com.sports.turfbook.domain.enums.SportType
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +9,8 @@ data class BookingDto(
     val turfId: String,
     val turfName: String,
     val turfAddress: String,
-    val sport: SportType,
+    /** Sport code, e.g. "FOOTBALL". Use KnownSports.fromCode() to resolve details. */
+    val sport: String,
     /** "2024-01-15" */
     val date: String,
     /** "10:00" */
