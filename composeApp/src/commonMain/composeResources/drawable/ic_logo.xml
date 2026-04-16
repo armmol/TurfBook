@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Outer circle (dark green) -->
+    <path
+        android:fillColor="#1A3C2A"
+        android:pathData="M60,0 A60,60 0 1,1 60,120 A60,60 0 1,1 60,0 Z" />
+
+    <!-- Pitch rectangle (white outline) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:pathData="M25,32 L95,32 L95,88 L25,88 Z" />
+
+    <!-- Centre circle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M60,60 m-14,0 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0" />
+
+    <!-- Centre line (vertical) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M60,32 L60,88" />
+
+    <!-- Centre spot -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M60,58 A2,2 0 1,1 60,62 A2,2 0 1,1 60,58 Z" />
+
+    <!-- Left penalty box -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M25,46 L41,46 L41,74 L25,74" />
+
+    <!-- Right penalty box -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M95,46 L79,46 L79,74 L95,74" />
+
+    <!-- Green accent strip at bottom -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M0,105 Q60,115 120,105 L120,120 L0,120 Z" />
+
+</vector>
