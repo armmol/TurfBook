@@ -14,34 +14,26 @@ object RedisService {
         )
     }
 
-    private fun slotKey(
-        turfId: String, date: String, startTime: String,
-        durationMinutes: Int, sport: String
-    ) = "slot_lock:$turfId:$date:$startTime:$durationMinutes:$sport"
+    private fun slotKey(courtId: String, date: String, startTime: String, durationMinutes: Int) =
+        "slot_lock:$courtId:$date:$startTime:$durationMinutes"
 
     /**
      * Atomically acquires a 5-minute slot hold for [userId].
      * Returns true if the lock was acquired (slot was free), false if already held.
      */
-    fun lockSlot(
-        turfId: String, date: String, startTime: String,
-        durationMinutes: Int, sport: String, userId: String
-    ): Boolean = pool.resource.use { redis ->
-        val key = slotKey(turfId, date, startTime, durationMinutes, sport)
-        redis.set(key, userId, SetParams.setParams().nx().ex(300L)) == "OK"
-    }
+    fun lockSlot(courtId: String, date: String, startTime: String, durationMinutes: Int, userId: String): Boolean =
+        pool.resource.use { redis ->
+            val key = slotKey(courtId, date, startTime, durationMinutes)
+            redis.set(key, userId, SetParams.setParams().nx().ex(300L)) == "OK"
+        }
 
-    fun releaseSlot(
-        turfId: String, date: String, startTime: String,
-        durationMinutes: Int, sport: String
-    ) = pool.resource.use { redis ->
-        redis.del(slotKey(turfId, date, startTime, durationMinutes, sport))
-    }
+    fun releaseSlot(courtId: String, date: String, startTime: String, durationMinutes: Int) =
+        pool.resource.use { redis ->
+            redis.del(slotKey(courtId, date, startTime, durationMinutes))
+        }
 
-    fun isSlotLocked(
-        turfId: String, date: String, startTime: String,
-        durationMinutes: Int, sport: String
-    ): Boolean = pool.resource.use { redis ->
-        redis.exists(slotKey(turfId, date, startTime, durationMinutes, sport))
-    }
+    fun isSlotLocked(courtId: String, date: String, startTime: String, durationMinutes: Int): Boolean =
+        pool.resource.use { redis ->
+            redis.exists(slotKey(courtId, date, startTime, durationMinutes))
+        }
 }

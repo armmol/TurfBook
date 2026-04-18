@@ -7,7 +7,8 @@ import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 object BookingsTable : UUIDTable("bookings") {
     val userId = uuid("user_id").references(UsersTable.id).index()
     val turfId = uuid("turf_id").references(TurfsTable.id).index()
-    /** Sport code, e.g. "FOOTBALL". Stored as varchar for extensibility. */
+    val courtId = uuid("court_id").references(CourtsTable.id).index()
+    /** Sport code — denormalised from the court for fast querying */
     val sport = varchar("sport", 50)
     /** "2024-01-15" */
     val date = varchar("date", 10).index()

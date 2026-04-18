@@ -11,18 +11,16 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 import kotlin.math.*
 
-class TurfService {
+class TurfService(private val courtService: CourtService) {
 
     fun createTurf(ownerId: String, dto: CreateTurfDto): TurfDetailDto = transaction {
         val now: Instant = Clock.System.now()
         val turfId = UUID.randomUUID()
 
-        // Validate sports
-        dto.slotPricing.forEach { pricing ->
-            val code = pricing.sport.uppercase()
-            if (!KnownSports.isKnown(code)) {
-                throw IllegalArgumentException("Unknown sport: $code")
-            }
+        // Validate all court sports upfront
+        dto.courts.forEach { court ->
+            val code = court.sport.uppercase()
+            if (!KnownSports.isKnown(code)) throw IllegalArgumentException("Unknown sport: $code")
         }
 
         TurfsTable.insert {
@@ -40,13 +38,6 @@ class TurfService {
             it[updatedAt] = now
         }
 
-        dto.slotPricing.map { it.sport.uppercase() }.distinct().forEach { sport ->
-            TurfSportsTable.insert {
-                it[TurfSportsTable.turfId] = turfId
-                it[TurfSportsTable.sport] = sport
-            }
-        }
-
         dto.amenities.forEach { amenity ->
             TurfAmenitiesTable.insert {
                 it[TurfAmenitiesTable.turfId] = turfId
@@ -62,15 +53,6 @@ class TurfService {
             }
         }
 
-        dto.slotPricing.forEach { pricing ->
-            TurfSlotPricingTable.insert {
-                it[TurfSlotPricingTable.turfId] = turfId
-                it[TurfSlotPricingTable.sport] = pricing.sport.uppercase()
-                it[TurfSlotPricingTable.durationMinutes] = pricing.durationMinutes
-                it[TurfSlotPricingTable.priceInPaise] = pricing.priceInPaise
-            }
-        }
-
         // Register optional external booking system
         val extUrl = dto.externalSystemUrl
         val extType = dto.externalSystemType
@@ -83,19 +65,25 @@ class TurfService {
             }
         }
 
+        // Create courts — each one inserts into CourtsTable + CourtSlotPricingTable
+        // and keeps TurfSportsTable in sync
+        dto.courts.forEach { courtDto ->
+            courtService.createCourt(turfId.toString(), ownerId, courtDto)
+        }
+
         getTurfDetail(turfId.toString())!!
     }
 
-    fun getTurfById(id: String): TurfDetailDto? = transaction {
-        getTurfDetail(id)
-    }
+    fun getTurfById(id: String): TurfDetailDto? = transaction { getTurfDetail(id) }
 
     fun searchTurfs(dto: TurfSearchQueryDto): List<TurfListItemDto> = transaction {
         val sportFilter = dto.sport?.uppercase()
 
         val query = TurfsTable.selectAll().where {
             var condition: Op<Boolean> = TurfsTable.isActive eq true
-            dto.city?.let { city -> condition = condition and (TurfsTable.city.lowerCase() like "%${city.lowercase()}%") }
+            dto.city?.let { city ->
+                condition = condition and (TurfsTable.city.lowerCase() like "%${city.lowercase()}%")
+            }
             condition
         }
 
@@ -108,9 +96,11 @@ class TurfService {
 
             if (sportFilter != null && sportFilter !in sports) return@map null
 
-            val minPrice = TurfSlotPricingTable
-                .selectAll().where { TurfSlotPricingTable.turfId eq turfId }
-                .minOfOrNull { it[TurfSlotPricingTable.priceInPaise] } ?: 0L
+            val minPrice = CourtSlotPricingTable
+                .join(CourtsTable, JoinType.INNER, CourtSlotPricingTable.courtId, CourtsTable.id)
+                .selectAll()
+                .where { (CourtsTable.turfId eq turfId) and (CourtsTable.isActive eq true) }
+                .minOfOrNull { it[CourtSlotPricingTable.priceInPaise] } ?: 0L
 
             val coverPhoto = TurfPhotosTable
                 .selectAll()
@@ -125,7 +115,6 @@ class TurfService {
                 haversineKm(userLat, userLon, row[TurfsTable.latitude], row[TurfsTable.longitude])
             } else null
 
-            // Filter by radius if provided
             if (distanceKm != null && radiusKm != null && distanceKm > radiusKm) return@map null
 
             TurfListItemDto(
@@ -145,7 +134,6 @@ class TurfService {
             )
         }.filterNotNull()
 
-        // Sort by distance if location provided, otherwise by rating
         if (dto.userLatitude != null && dto.userLongitude != null) {
             turfs.sortedBy { it.distanceKm ?: Float.MAX_VALUE }
         } else {
@@ -176,9 +164,7 @@ class TurfService {
         if (updated == 0) return@transaction null
 
         dto.amenities?.let { newAmenities ->
-            TurfAmenitiesTable.deleteWhere {
-                Op.build { TurfAmenitiesTable.turfId eq uuid }
-            }
+            TurfAmenitiesTable.deleteWhere { Op.build { TurfAmenitiesTable.turfId eq uuid } }
             newAmenities.forEach { amenity ->
                 TurfAmenitiesTable.insert {
                     it[TurfAmenitiesTable.turfId] = uuid
@@ -188,9 +174,7 @@ class TurfService {
         }
 
         dto.photoUrls?.let { newPhotos ->
-            TurfPhotosTable.deleteWhere {
-                Op.build { TurfPhotosTable.turfId eq uuid }
-            }
+            TurfPhotosTable.deleteWhere { Op.build { TurfPhotosTable.turfId eq uuid } }
             newPhotos.forEachIndexed { index, url ->
                 TurfPhotosTable.insert {
                     it[TurfPhotosTable.turfId] = uuid
@@ -200,40 +184,11 @@ class TurfService {
             }
         }
 
-        dto.slotPricing?.let { newPricing ->
-            newPricing.forEach { pricing ->
-                if (!KnownSports.isKnown(pricing.sport.uppercase())) {
-                    throw IllegalArgumentException("Unknown sport: ${pricing.sport}")
-                }
-            }
-            TurfSlotPricingTable.deleteWhere {
-                Op.build { TurfSlotPricingTable.turfId eq uuid }
-            }
-            TurfSportsTable.deleteWhere {
-                Op.build { TurfSportsTable.turfId eq uuid }
-            }
-            newPricing.map { it.sport.uppercase() }.distinct().forEach { sport ->
-                TurfSportsTable.insert {
-                    it[TurfSportsTable.turfId] = uuid
-                    it[TurfSportsTable.sport] = sport
-                }
-            }
-            newPricing.forEach { pricing ->
-                TurfSlotPricingTable.insert {
-                    it[TurfSlotPricingTable.turfId] = uuid
-                    it[TurfSlotPricingTable.sport] = pricing.sport.uppercase()
-                    it[TurfSlotPricingTable.durationMinutes] = pricing.durationMinutes
-                    it[TurfSlotPricingTable.priceInPaise] = pricing.priceInPaise
-                }
-            }
-        }
-
         getTurfDetail(turfId)
     }
 
     fun isTurfOwner(turfId: String, userId: String): Boolean = transaction {
-        TurfsTable
-            .selectAll()
+        TurfsTable.selectAll()
             .where {
                 (TurfsTable.id eq UUID.fromString(turfId)) and
                 (TurfsTable.ownerId eq UUID.fromString(userId))
@@ -241,7 +196,7 @@ class TurfService {
             .count() > 0
     }
 
-    // ── Internal helpers ────────────────────────────────────────────────────
+    // ── Internal helpers ──────────────────────────────────────────────────────
 
     private fun getTurfDetail(turfId: String): TurfDetailDto? {
         val uuid = UUID.fromString(turfId)
@@ -260,10 +215,10 @@ class TurfService {
             .orderBy(TurfPhotosTable.displayOrder)
             .map { it[TurfPhotosTable.url] }
 
-        val durations = TurfSlotPricingTable
-            .selectAll().where { TurfSlotPricingTable.turfId eq uuid }
-            .map { it[TurfSlotPricingTable.durationMinutes] }
-            .distinct()
+        val courts = CourtsTable.selectAll()
+            .where { (CourtsTable.turfId eq uuid) and (CourtsTable.isActive eq true) }
+            .orderBy(CourtsTable.sport to SortOrder.ASC, CourtsTable.createdAt to SortOrder.ASC)
+            .mapNotNull { courtService.fetchCourtDto(it[CourtsTable.id].value) }
 
         val externalRow = TurfExternalSystemTable.selectAll()
             .where { TurfExternalSystemTable.turfId eq uuid }
@@ -277,12 +232,12 @@ class TurfService {
             city = row[TurfsTable.city],
             latitude = row[TurfsTable.latitude],
             longitude = row[TurfsTable.longitude],
+            courts = courts,
             sports = sports,
             amenities = amenities,
             photoUrls = photos,
             openingTime = row[TurfsTable.openingTime],
             closingTime = row[TurfsTable.closingTime],
-            slotDurationsMinutes = durations,
             rating = row[TurfsTable.rating],
             reviewCount = row[TurfsTable.reviewCount],
             isVerified = row[TurfsTable.isVerified],
@@ -291,7 +246,6 @@ class TurfService {
     }
 }
 
-/** Haversine great-circle distance in km */
 private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
     val R = 6371.0
     val dLat = Math.toRadians(lat2 - lat1)

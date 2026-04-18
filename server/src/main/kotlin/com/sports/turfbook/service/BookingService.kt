@@ -7,11 +7,11 @@ import com.sports.turfbook.connector.ExternalBookingPayload
 import com.sports.turfbook.connector.ExternalCancelPayload
 import com.sports.turfbook.connector.ExternalConfirmPayload
 import com.sports.turfbook.database.tables.BookingsTable
+import com.sports.turfbook.database.tables.CourtSlotPricingTable
+import com.sports.turfbook.database.tables.CourtsTable
 import com.sports.turfbook.database.tables.TurfExternalSystemTable
-import com.sports.turfbook.database.tables.TurfSlotPricingTable
 import com.sports.turfbook.database.tables.TurfsTable
 import com.sports.turfbook.database.tables.UsersTable
-import com.sports.turfbook.domain.KnownSports
 import com.sports.turfbook.domain.enums.BookingStatus
 import com.sports.turfbook.plugins.ConflictException
 import com.sports.turfbook.plugins.NotFoundException
@@ -24,47 +24,53 @@ import java.util.UUID
 class BookingService {
 
     /**
-     * Validates the slot, acquires a Redis lock, and creates a PENDING_PAYMENT booking.
-     * If the turf has an external booking system configured, it is notified after creation.
-     * Throws [ConflictException] if the slot is already taken.
+     * Validates the court + slot, acquires a Redis lock, creates a PENDING_PAYMENT booking.
+     * Sport is derived from the court — callers supply only courtId.
      */
     fun createBooking(userId: String, dto: CreateBookingDto): BookingDto = transaction {
         val turfUuid = UUID.fromString(dto.turfId)
-        val sportCode = dto.sport.uppercase()
+        val courtUuid = UUID.fromString(dto.courtId)
 
-        // Validate sport is known
-        if (!KnownSports.isKnown(sportCode)) {
-            throw IllegalArgumentException("Unknown sport: $sportCode")
-        }
-
-        // Validate turf exists
+        // Validate turf
         val turfRow = TurfsTable.selectAll()
             .where { (TurfsTable.id eq turfUuid) and (TurfsTable.isActive eq true) }
             .singleOrNull() ?: throw NotFoundException("Turf not found")
 
-        // Validate pricing exists for this sport + duration
-        val pricingRow = TurfSlotPricingTable.selectAll()
+        // Validate court belongs to turf
+        val courtRow = CourtsTable.selectAll()
             .where {
-                (TurfSlotPricingTable.turfId eq turfUuid) and
-                (TurfSlotPricingTable.sport eq sportCode) and
-                (TurfSlotPricingTable.durationMinutes eq dto.durationMinutes)
+                (CourtsTable.id eq courtUuid) and
+                (CourtsTable.turfId eq turfUuid) and
+                (CourtsTable.isActive eq true)
+            }
+            .singleOrNull() ?: throw NotFoundException("Court not found on this turf")
+
+        val sportCode = courtRow[CourtsTable.sport]
+
+        // Validate pricing for this court + duration
+        val pricingRow = CourtSlotPricingTable.selectAll()
+            .where {
+                (CourtSlotPricingTable.courtId eq courtUuid) and
+                (CourtSlotPricingTable.durationMinutes eq dto.durationMinutes)
             }
             .singleOrNull() ?: throw IllegalArgumentException(
-                "This turf does not offer $sportCode for ${dto.durationMinutes}-minute slots"
+                "Court does not offer ${dto.durationMinutes}-minute slots"
             )
 
-        // Validate slot is within turf hours
-        val openMins = turfRow[TurfsTable.openingTime].toMinutes()
-        val closeMins = turfRow[TurfsTable.closingTime].toMinutes()
+        // Validate slot within court/turf operating hours
+        val openingTime = courtRow[CourtsTable.openingTime] ?: turfRow[TurfsTable.openingTime]
+        val closingTime = courtRow[CourtsTable.closingTime] ?: turfRow[TurfsTable.closingTime]
+        val openMins = openingTime.toMinutes()
+        val closeMins = closingTime.toMinutes()
         val startMins = dto.startTime.toMinutes()
         if (startMins < openMins || startMins + dto.durationMinutes > closeMins) {
-            throw IllegalArgumentException("Slot is outside turf operating hours")
+            throw IllegalArgumentException("Slot is outside court operating hours")
         }
 
         val endTime = (startMins + dto.durationMinutes).toTimeString()
-        val price = pricingRow[TurfSlotPricingTable.priceInPaise]
+        val price = pricingRow[CourtSlotPricingTable.priceInPaise]
 
-        // Check with external system if configured
+        // Check external system if configured
         val externalRow = TurfExternalSystemTable.selectAll()
             .where { TurfExternalSystemTable.turfId eq turfUuid }
             .singleOrNull()
@@ -77,26 +83,23 @@ class BookingService {
             throw ConflictException("Slot is not available in the turf's booking system")
         }
 
-        // Try acquiring Redis lock before touching the DB
-        val locked = RedisService.lockSlot(
-            dto.turfId, dto.date, dto.startTime, dto.durationMinutes, sportCode, userId
-        )
+        // Acquire Redis lock
+        val locked = RedisService.lockSlot(dto.courtId, dto.date, dto.startTime, dto.durationMinutes, userId)
         if (!locked) throw ConflictException("This slot is currently being booked by someone else. Try again.")
 
-        // Double-check DB for confirmed/pending bookings (guard against Redis eviction)
+        // Double-check DB (guard against Redis eviction)
         val alreadyBooked = BookingsTable.selectAll()
             .where {
-                (BookingsTable.turfId eq turfUuid) and
+                (BookingsTable.courtId eq courtUuid) and
                 (BookingsTable.date eq dto.date) and
                 (BookingsTable.startTime eq dto.startTime) and
                 (BookingsTable.durationMinutes eq dto.durationMinutes) and
-                (BookingsTable.sport eq sportCode) and
                 (BookingsTable.status inList listOf(BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT))
             }
             .count() > 0
 
         if (alreadyBooked) {
-            RedisService.releaseSlot(dto.turfId, dto.date, dto.startTime, dto.durationMinutes, sportCode)
+            RedisService.releaseSlot(dto.courtId, dto.date, dto.startTime, dto.durationMinutes)
             throw ConflictException("Slot is already booked")
         }
 
@@ -107,6 +110,7 @@ class BookingService {
             it[id] = bookingId
             it[BookingsTable.userId] = UUID.fromString(userId)
             it[BookingsTable.turfId] = turfUuid
+            it[BookingsTable.courtId] = courtUuid
             it[BookingsTable.sport] = sportCode
             it[BookingsTable.date] = dto.date
             it[BookingsTable.startTime] = dto.startTime
@@ -123,6 +127,8 @@ class BookingService {
             turfId = dto.turfId,
             turfName = turfRow[TurfsTable.name],
             turfAddress = turfRow[TurfsTable.address],
+            courtId = dto.courtId,
+            courtName = courtRow[CourtsTable.name],
             sport = sportCode,
             date = dto.date,
             startTime = dto.startTime,
@@ -132,7 +138,6 @@ class BookingService {
             createdAt = now.toString()
         )
 
-        // Notify external system (fire-and-forget, failures are logged not thrown)
         connector.onBookingCreated(
             ExternalBookingPayload(
                 bookingId = bookingId.toString(),
@@ -154,6 +159,7 @@ class BookingService {
     fun getUserBookings(userId: String): List<BookingDto> = transaction {
         BookingsTable
             .join(TurfsTable, JoinType.INNER, BookingsTable.turfId, TurfsTable.id)
+            .join(CourtsTable, JoinType.INNER, BookingsTable.courtId, CourtsTable.id)
             .selectAll()
             .where { BookingsTable.userId eq UUID.fromString(userId) }
             .orderBy(BookingsTable.createdAt, SortOrder.DESC)
@@ -163,6 +169,7 @@ class BookingService {
     fun getBookingById(bookingId: String, userId: String): BookingDto = transaction {
         BookingsTable
             .join(TurfsTable, JoinType.INNER, BookingsTable.turfId, TurfsTable.id)
+            .join(CourtsTable, JoinType.INNER, BookingsTable.courtId, CourtsTable.id)
             .selectAll()
             .where {
                 (BookingsTable.id eq UUID.fromString(bookingId)) and
@@ -194,19 +201,16 @@ class BookingService {
             it[updatedAt] = now
         }
 
+        val courtId = row[BookingsTable.courtId]
         val turfId = row[BookingsTable.turfId]
-        val sport = row[BookingsTable.sport]
 
-        // Release Redis lock if still held
         RedisService.releaseSlot(
-            turfId.toString(),
+            courtId.toString(),
             row[BookingsTable.date],
             row[BookingsTable.startTime],
-            row[BookingsTable.durationMinutes],
-            sport
+            row[BookingsTable.durationMinutes]
         )
 
-        // Notify external system
         val externalRow = TurfExternalSystemTable.selectAll()
             .where { TurfExternalSystemTable.turfId eq turfId }
             .singleOrNull()
@@ -240,17 +244,14 @@ class BookingService {
             it[updatedAt] = now
         }
 
-        // Increment user's total bookings counter
         UsersTable.update({ UsersTable.id eq row[BookingsTable.userId] }) {
             with(SqlExpressionBuilder) { it.update(totalBookings, totalBookings + 1) }
         }
 
         val turfId = row[BookingsTable.turfId]
-        val turfRow = TurfsTable.selectAll()
-            .where { TurfsTable.id eq turfId }
-            .single()
+        val turfRow = TurfsTable.selectAll().where { TurfsTable.id eq turfId }.single()
+        val courtRow = CourtsTable.selectAll().where { CourtsTable.id eq row[BookingsTable.courtId] }.single()
 
-        // Notify external system
         val externalRow = TurfExternalSystemTable.selectAll()
             .where { TurfExternalSystemTable.turfId eq turfId }
             .singleOrNull()
@@ -265,6 +266,8 @@ class BookingService {
             turfId = turfId.toString(),
             turfName = turfRow[TurfsTable.name],
             turfAddress = turfRow[TurfsTable.address],
+            courtId = row[BookingsTable.courtId].toString(),
+            courtName = courtRow[CourtsTable.name],
             sport = row[BookingsTable.sport],
             date = row[BookingsTable.date],
             startTime = row[BookingsTable.startTime],
@@ -281,6 +284,8 @@ class BookingService {
         turfId = this[BookingsTable.turfId].toString(),
         turfName = this[TurfsTable.name],
         turfAddress = this[TurfsTable.address],
+        courtId = this[BookingsTable.courtId].toString(),
+        courtName = this[CourtsTable.name],
         sport = this[BookingsTable.sport],
         date = this[BookingsTable.date],
         startTime = this[BookingsTable.startTime],
