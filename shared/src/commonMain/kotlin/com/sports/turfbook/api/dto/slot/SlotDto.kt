@@ -6,8 +6,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SlotDto(
     val id: String,
-    /** Sport code, e.g. "FOOTBALL". Use KnownSports.fromCode() to resolve details. */
-    val sport: String,
     /** "10:00" */
     val startTime: String,
     /** "11:00" */

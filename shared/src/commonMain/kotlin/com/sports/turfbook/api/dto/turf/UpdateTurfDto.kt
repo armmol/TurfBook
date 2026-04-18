@@ -2,7 +2,7 @@ package com.sports.turfbook.api.dto.turf
 
 import kotlinx.serialization.Serializable
 
-/** PATCH /turfs/{id} — all fields optional */
+/** PATCH /turfs/{id} — all fields optional. Courts are managed via /courts sub-resource. */
 @Serializable
 data class UpdateTurfDto(
     val name: String? = null,
@@ -12,6 +12,5 @@ data class UpdateTurfDto(
     val closingTime: String? = null,
     val amenities: List<String>? = null,
     val photoUrls: List<String>? = null,
-    val slotPricing: List<SlotPricingDto>? = null,
     val isActive: Boolean? = null
 )

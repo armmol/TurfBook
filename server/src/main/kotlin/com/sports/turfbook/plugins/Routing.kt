@@ -16,7 +16,8 @@ fun Application.configureRouting() {
     val userService = UserService()
     val authService = AuthService(userService)
 
-    val turfService = TurfService()
+    val courtService = CourtService()
+    val turfService = TurfService(courtService)
     val slotService = SlotService()
     val bookingService = BookingService()
     val paymentService = PaymentService(bookingService)
@@ -39,8 +40,8 @@ fun Application.configureRouting() {
             // Sports registry — list / lookup / register custom sports
             sportsRoutes(sportsRegistryService)
 
-            // Turfs — search, details, slots, reviews
-            turfRoutes(turfService, slotService, reviewService)
+            // Turfs — search, details, courts, slots, reviews
+            turfRoutes(turfService, slotService, courtService, reviewService)
 
             // Bookings — create, list, get, cancel
             bookingRoutes(bookingService)
