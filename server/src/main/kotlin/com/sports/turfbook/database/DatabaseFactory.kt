@@ -34,6 +34,7 @@ object DatabaseFactory {
                 // Courts (must come after TurfsTable)
                 CourtsTable,
                 CourtSlotPricingTable,
+                CourtPricingRulesTable,
                 // Bookings & Payments
                 BookingsTable,
                 PaymentsTable,

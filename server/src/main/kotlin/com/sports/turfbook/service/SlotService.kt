@@ -3,12 +3,14 @@ package com.sports.turfbook.service
 import com.sports.turfbook.api.dto.slot.DayAvailabilityDto
 import com.sports.turfbook.api.dto.slot.SlotDto
 import com.sports.turfbook.database.tables.BookingsTable
+import com.sports.turfbook.database.tables.CourtPricingRulesTable
 import com.sports.turfbook.database.tables.CourtSlotPricingTable
 import com.sports.turfbook.database.tables.CourtsTable
 import com.sports.turfbook.database.tables.TurfsTable
 import com.sports.turfbook.domain.enums.BookingStatus
 import com.sports.turfbook.domain.enums.SlotStatus
 import com.sports.turfbook.plugins.NotFoundException
+import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -38,8 +40,17 @@ class SlotService {
             val closingTime = courtRow[CourtsTable.closingTime] ?: turfRow[TurfsTable.closingTime]
             val sport = courtRow[CourtsTable.sport]
 
-            val pricingRows = CourtSlotPricingTable.selectAll()
+            val basePricingRows = CourtSlotPricingTable.selectAll()
                 .where { CourtSlotPricingTable.courtId eq courtUuid }
+
+            // Load all active rules for this court once — avoids N queries inside the loop
+            val activeRules = CourtPricingRulesTable.selectAll()
+                .where {
+                    (CourtPricingRulesTable.courtId eq courtUuid) and
+                    (CourtPricingRulesTable.isActive eq true)
+                }
+
+            val dayOfWeek = LocalDate.parse(date).dayOfWeek.value
 
             // Occupied: "startTime:durationMinutes"
             val occupiedKeys = BookingsTable.selectAll()
@@ -56,9 +67,9 @@ class SlotService {
 
             val slots = mutableListOf<SlotDto>()
 
-            for (pricingRow in pricingRows) {
+            for (pricingRow in basePricingRows) {
                 val duration = pricingRow[CourtSlotPricingTable.durationMinutes]
-                val price = pricingRow[CourtSlotPricingTable.priceInPaise]
+                val basePrice = pricingRow[CourtSlotPricingTable.priceInPaise]
 
                 generateTimeSlots(openingTime, closingTime, duration).forEach { (start, end) ->
                     val isBooked = "${start}:${duration}" in occupiedKeys
@@ -70,12 +81,25 @@ class SlotService {
                         else -> SlotStatus.AVAILABLE
                     }
 
+                    // Resolve price: find highest-priority rule that matches this slot
+                    val resolvedPrice = activeRules
+                        .filter { rule ->
+                            rule[CourtPricingRulesTable.durationMinutes] == duration &&
+                            (rule[CourtPricingRulesTable.specificDate]?.let { it == date } ?: true) &&
+                            (rule[CourtPricingRulesTable.dayOfWeek]?.let { it == dayOfWeek } ?: true) &&
+                            (rule[CourtPricingRulesTable.startTime]?.let { start >= it } ?: true) &&
+                            (rule[CourtPricingRulesTable.endTime]?.let { start < it } ?: true)
+                        }
+                        .maxByOrNull { it[CourtPricingRulesTable.priority] }
+                        ?.get(CourtPricingRulesTable.priceInPaise)
+                        ?: basePrice
+
                     slots += SlotDto(
                         id = "$courtId:$date:$start:$duration",
                         startTime = start,
                         endTime = end,
                         durationMinutes = duration,
-                        priceInPaise = price,
+                        priceInPaise = resolvedPrice,
                         status = status
                     )
                 }

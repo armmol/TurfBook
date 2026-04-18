@@ -3,12 +3,14 @@ package com.sports.turfbook.routes
 import com.sports.turfbook.api.dto.common.ApiResponse
 import com.sports.turfbook.api.dto.court.CreateCourtDto
 import com.sports.turfbook.api.dto.court.UpdateCourtDto
+import com.sports.turfbook.api.dto.pricing.CreateCourtPricingRuleDto
+import com.sports.turfbook.api.dto.pricing.UpdateCourtPricingRuleDto
 import com.sports.turfbook.api.dto.turf.CreateTurfDto
 import com.sports.turfbook.api.dto.turf.TurfSearchQueryDto
 import com.sports.turfbook.api.dto.turf.UpdateTurfDto
-import com.sports.turfbook.plugins.NotFoundException
 import com.sports.turfbook.plugins.userId
 import com.sports.turfbook.service.CourtService
+import com.sports.turfbook.service.PricingRuleService
 import com.sports.turfbook.service.ReviewService
 import com.sports.turfbook.service.SlotService
 import com.sports.turfbook.service.TurfService
@@ -22,6 +24,7 @@ fun Route.turfRoutes(
     turfService: TurfService,
     slotService: SlotService,
     courtService: CourtService,
+    pricingRuleService: PricingRuleService,
     reviewService: ReviewService
 ) {
 
@@ -139,6 +142,66 @@ fun Route.turfRoutes(
                 val ownerId = call.userId
                 courtService.deactivateCourt(turfId, courtId, ownerId)
                 call.respond(HttpStatusCode.OK, ApiResponse<Unit>(success = true, message = "Court deactivated"))
+            }
+
+            // ── Pricing rules ─────────────────────────────────────────────────
+
+            /**
+             * GET /turfs/{id}/courts/{courtId}/pricing-rules
+             * Lists all active pricing rules for a court (owner view — includes all rules).
+             */
+            get("/{id}/courts/{courtId}/pricing-rules") {
+                val turfId = call.parameters["id"]
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing id"))
+                val courtId = call.parameters["courtId"]
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing courtId"))
+                val rules = pricingRuleService.getRulesForCourt(turfId, courtId)
+                call.respond(HttpStatusCode.OK, ApiResponse(success = true, data = rules))
+            }
+
+            /**
+             * POST /turfs/{id}/courts/{courtId}/pricing-rules
+             * Examples:
+             *   { durationMinutes: 60, priceInPaise: 150000, dayOfWeek: 6, priority: 10 }  // Saturdays
+             *   { durationMinutes: 60, priceInPaise: 120000, startTime: "18:00", endTime: "22:00", priority: 5 }  // peak hours
+             *   { durationMinutes: 60, priceInPaise: 200000, specificDate: "2024-12-25", priority: 20 }  // Christmas
+             */
+            post("/{id}/courts/{courtId}/pricing-rules") {
+                val turfId = call.parameters["id"]
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing id"))
+                val courtId = call.parameters["courtId"]
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing courtId"))
+                val ownerId = call.userId
+                val dto = call.receive<CreateCourtPricingRuleDto>()
+                val rule = pricingRuleService.createRule(turfId, courtId, ownerId, dto)
+                call.respond(HttpStatusCode.Created, ApiResponse(success = true, data = rule))
+            }
+
+            /** PATCH /turfs/{id}/courts/{courtId}/pricing-rules/{ruleId} */
+            patch("/{id}/courts/{courtId}/pricing-rules/{ruleId}") {
+                val turfId = call.parameters["id"]
+                    ?: return@patch call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing id"))
+                val courtId = call.parameters["courtId"]
+                    ?: return@patch call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing courtId"))
+                val ruleId = call.parameters["ruleId"]
+                    ?: return@patch call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing ruleId"))
+                val ownerId = call.userId
+                val dto = call.receive<UpdateCourtPricingRuleDto>()
+                val rule = pricingRuleService.updateRule(turfId, courtId, ruleId, ownerId, dto)
+                call.respond(HttpStatusCode.OK, ApiResponse(success = true, data = rule))
+            }
+
+            /** DELETE /turfs/{id}/courts/{courtId}/pricing-rules/{ruleId} */
+            delete("/{id}/courts/{courtId}/pricing-rules/{ruleId}") {
+                val turfId = call.parameters["id"]
+                    ?: return@delete call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing id"))
+                val courtId = call.parameters["courtId"]
+                    ?: return@delete call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing courtId"))
+                val ruleId = call.parameters["ruleId"]
+                    ?: return@delete call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(success = false, message = "Missing ruleId"))
+                val ownerId = call.userId
+                pricingRuleService.deleteRule(turfId, courtId, ruleId, ownerId)
+                call.respond(HttpStatusCode.OK, ApiResponse<Unit>(success = true, message = "Pricing rule deleted"))
             }
 
             /** POST /turfs/{id}/reviews */
