@@ -8,12 +8,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- Google Maps API key (restricted to com.sports.turfbook + SHA-1) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCY-9UvGuWb94UKGJDj7fc3QjIKf1Wwx4g" />
+
         <activity
             android:exported="true"
             android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

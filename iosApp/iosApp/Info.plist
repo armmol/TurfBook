@@ -7,6 +7,10 @@
     <key>CFBundleDisplayName</key>
     <string>TurfBook</string>
 
+    <!-- ── Google Maps API key (restricted to com.sports.turfbook.TurfBook) -->
+    <key>GMSApiKey</key>
+    <string>AIzaSyAMipWoN1X9IVCx3wStlD3nsv3gxtnD07k</string>
+
     <!-- ── Performance ─────────────────────────────────────────────────── -->
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
