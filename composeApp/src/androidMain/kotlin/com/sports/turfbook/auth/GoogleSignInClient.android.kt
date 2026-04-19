@@ -13,10 +13,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
 private class AndroidGoogleSignInClient(private val context: Context) : GoogleSignInClient {
 
-    // TODO: Replace with your Web Client ID from Google Cloud Console (APIs & Services → Credentials)
-    //       Must match the SHA-1 fingerprint registered for this app.
-    //       Example: "123456789-abc123def456.apps.googleusercontent.com"
-    private val webClientId = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+    private val webClientId = "113756137817-6f19bpem4er2b895ilqd6vfv2ernoshc.apps.googleusercontent.com"
 
     override suspend fun signIn(): GoogleSignInOutcome {
         val credentialManager = CredentialManager.create(context)
