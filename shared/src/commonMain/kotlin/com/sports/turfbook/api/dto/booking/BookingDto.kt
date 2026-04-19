@@ -9,6 +9,8 @@ data class BookingDto(
     val turfId: String,
     val turfName: String,
     val turfAddress: String,
+    val courtId: String,
+    val courtName: String,
     /** Sport code, e.g. "FOOTBALL". Use KnownSports.fromCode() to resolve details. */
     val sport: String,
     /** "2024-01-15" */
